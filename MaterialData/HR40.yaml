@@ -1,0 +1,19 @@
+name: 'HR40'
+fibre_type: 'CFK'
+vf: 0.6
+E_1: 228.0E+9
+E_2: 7.2E+9
+G_31: 2.4E+9
+G_32: 1.86E+9
+v_31: 0.29
+v_32: 0.5
+R_1c: 1340.0E+6
+R_1t: 2920.0E+6
+R_2c: 169.0E+6
+R_2t: 60.0E+6
+R_31: 83.0E+6
+R_32: 45.0E+6
+roh: 1552
+
+# G32, v_32, R_32 are unknown
+# https://www.rockwestcomposites.com/downloads/HR40-14008-Fiber.pdf

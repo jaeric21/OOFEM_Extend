@@ -1,0 +1,18 @@
+name: 'PX35'
+fibre_type: 'CFK'
+vf: 0.6
+E_1: 130.0E+9
+E_2: 7.2E+9
+G_31: 4.8E+9
+G_32: 1.86E+9
+v_31: 0.29
+v_32: 0.5
+R_1c: 1320.0E+6
+R_1t: 1850.0E+6
+R_2c: 169.0E+6
+R_2t: 60.0E+6
+R_31: 70.0E+6
+R_32: 59.0E+6
+roh: 1552
+
+# https://zoltek.com/wp-content/uploads/2018/02/2018_PX35-Brochure_FINAL.pdf
