@@ -95,6 +95,7 @@ class Structure:
             n.print_displacement()
 
 def main():
+    # main for testing
     # setup structure with nodes
     node0 = node.Node(0, 0, 0)
     node1 = node.Node(0, 1, 0)

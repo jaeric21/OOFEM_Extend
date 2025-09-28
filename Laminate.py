@@ -12,6 +12,7 @@ class Laminate:
         self.Dij = np.zeros((3, 3))
         self.update_laminate_properties()
         self.ABDij = np.zeros((6, 6))
+        self.thickness = 0
 
     @classmethod
     def from_ply_list(cls, entry_list: List[Plies.Ply]):
@@ -34,11 +35,9 @@ class Laminate:
             raise ValueError("Invalid index")
 
     def calc_ABD_matrices(self):
-        # total laminate thickness
         total_thickness = sum(ply.thickness for ply in self.entries)
         self.thickness = total_thickness
 
-        # mid-plane reference
         z_bot = -total_thickness / 2.0
         z_coords = [z_bot]
 
@@ -67,7 +66,6 @@ class Laminate:
         self.Bij = B
         self.Dij = D
 
-        # assemble ABD matrix
         self.ABDij = np.block([
             [A, B],
             [B, D]

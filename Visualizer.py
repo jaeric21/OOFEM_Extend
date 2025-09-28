@@ -203,14 +203,14 @@ class StructureViewerWidget(QtWidgets.QWidget):
                     Fx, Fy, Fz, Mx, My = f
                     p = n.node_position
 
-                    # --- Translational forces ---
+                    #forces
                     vec = np.array([Fx, Fy, Fz])
                     if np.linalg.norm(vec) > 0:
                         force_points.append(p)
                         force_vectors.append(vec)
                         force_magnitudes.append(f"{np.linalg.norm(vec):.2f}")
 
-                    # --- Moment about x (double-headed arrow) ---
+                    #moment with <<--
                     if Mx != 0:
                         vec = np.array([self.force_vector_magnitude * np.sign(Mx) * 0.01, 0, 0])
                         arrow1 = pv.Arrow(start=p - vec, direction=vec)
@@ -220,7 +220,7 @@ class StructureViewerWidget(QtWidgets.QWidget):
                         self.plotter.add_point_labels([p], [f"Mx={Mx:.2f}"], text_color="blue",
                                                       name=f"moment_x_label_{n.id}", font_size=10)
 
-                    # --- Moment about y (double-headed arrow) ---
+                    # moment y with <<--
                     if My != 0:
                         vec = np.array([0, self.force_vector_magnitude * np.sign(My) * 0.01, 0])
                         arrow1 = pv.Arrow(start=p - vec, direction=vec,)

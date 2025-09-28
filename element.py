@@ -1,8 +1,8 @@
 # Class for shell elements
 
-import forces
+
 import node
-import Material
+import Laminate as lc
 import constraints
 
 import numpy as np
@@ -10,11 +10,12 @@ from itertools import count
 
 class Element:
     _element_ids = count(0)
-    def __init__(self, n1:node.Node, n2:node.Node, n3:node.Node, n4:node.Node, ref:np.ndarray):
+    def __init__(self, n1:node.Node, n2:node.Node, n3:node.Node, n4:node.Node, laminate:lc.Laminate, ref:np.ndarray):
         self._T = np.zeros((20,20))
         self.stiffness_matrix_global = None
         self.stiffness_matrix_local = None
         self.id = next(self._element_ids)
+        self.laminate = laminate
         self.reference_system = ref
         self._dofNumbers = [0] * 20
         self._eps = None
@@ -67,6 +68,7 @@ class Element:
 
     def compute_stiffness_matrix(self):
 
+        '''
         A = np.array([
             [103239, 7287.45, 0],
             [7287.45, 103239, 0],
@@ -81,7 +83,9 @@ class Element:
 
         ABD_Matrix = np.block([[A, B],
                                [B, D]])
-
+        '''
+        self.laminate.calc_ABD_matrices()
+        ABD_Matrix = self.laminate.ABDij
         Kloc = np.zeros((20, 20))
 
         # 2x2 Gauss-Punkte
@@ -123,9 +127,7 @@ class Element:
         self._Tmat = Tmat
 
     def _calc_Bc(self, xi, eta):
-        """
-        Build the Bc matrix (6x20) and return also detJ for a Gauss point.
-        """
+        # Build the Bc matrix (6x20) and return detJ for a Gauss point.
         N, dN_dxi, dN_deta = self._shape_function(xi, eta)
 
         # Jacobian
