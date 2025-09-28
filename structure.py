@@ -78,11 +78,6 @@ class Structure:
         self._displacements = None
         self._displacements = np.linalg.solve(self._global_stiffness_matrix, self._global_force_vector)
         self._set_nodal_displacements()
-        for e in self.elements:
-            e.compute_eps()
-
-        #for n in self._unique_nodes:
-         #   n.print_displacements()
 
     def _set_nodal_displacements(self)->None:
         for n in self._unique_nodes:

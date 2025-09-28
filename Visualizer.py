@@ -73,6 +73,15 @@ class StructureViewerWidget(QtWidgets.QWidget):
         button_layout.addWidget(QtWidgets.QLabel("Force Vector Magnitude"))
         button_layout.addWidget(self.force_mag_field)
 
+        self.strain_selector = QtWidgets.QComboBox()
+        self.strain_selector.addItems(["εx", "εy", "εxy", "γxz", "γyz"])
+        button_layout.addWidget(QtWidgets.QLabel("Strain Component"))
+        button_layout.addWidget(self.strain_selector)
+
+        self.btn_show_strain = QtWidgets.QPushButton("Show Strain")
+        self.btn_show_strain.clicked.connect(self.show_strain)
+        button_layout.addWidget(self.btn_show_strain)
+
         layout.addLayout(button_layout)
         layout.addWidget(self.plotter.interactor)
 
@@ -96,6 +105,29 @@ class StructureViewerWidget(QtWidgets.QWidget):
             mesh = pv.PolyData(points, faces)
             self.plotter.add_mesh(mesh, color="lightgray", style="wireframe")  # or surface
         self.plotter.show_axes()
+
+    def show_strain(self):
+        # Which strain component to display (0–4)
+        comp_idx = self.strain_selector.currentIndex()
+        print(comp_idx)
+
+        # Remove old strain meshes if any
+        self.plotter.clear()
+        self._draw_elements()  # redraw base geometry for context
+
+        # Collect strain values
+        for element in self.structure.elements:
+            points = np.array([n.node_position for n in element.nodes])
+            faces = np.hstack([[4, 0, 1, 2, 3]])
+
+            strain_value = element.get_strain()[comp_idx]
+
+            mesh = pv.PolyData(points, faces)
+            mesh.cell_data["strain"] = [strain_value]  # assign strain as scalar
+            self.plotter.add_mesh(mesh, scalars="strain", cmap="viridis", show_edges=True)
+
+        self.plotter.add_scalar_bar("Strain")
+        self.plotter.render()
 
     def _assemble_matrix(self):
         self.structure.assemble_global_stiffness_matrix()
