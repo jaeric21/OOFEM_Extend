@@ -25,8 +25,8 @@ def main():
     ref_sys = np.array([1, 0, 0])
 
     node0.constraints = constraints.Constraint(False, False, False, False, False)
-    node1.constraints = constraints.Constraint(False, False, False, False, False)
-    node2.constraints = constraints.Constraint(False, False, False, False, False)
+    node1.constraints = constraints.Constraint(False, True, False, False, False)
+    node2.constraints = constraints.Constraint(False, True, False, False, False)
     node3.constraints = constraints.Constraint(True, True, False, True, True)
     node4.constraints = constraints.Constraint(True, True, False, True, True)
     node5.constraints = constraints.Constraint(True, True, False, True, True)
@@ -35,9 +35,9 @@ def main():
     node7.constraints = constraints.Constraint(True, True, False, True, True)
     node8.constraints = constraints.Constraint(True, True, False, True, True)
 
-    node6.force = forces.Force(500, -500, 0, 0, 0)
-    node7.force = forces.Force(1000, 0, 0, 0, 0)
-    node8.force = forces.Force(500, 500, 0, 0, 0)
+    node6.force = forces.Force(5000, 0, 0, 0, 0)
+    node7.force = forces.Force(5000, 0, 0, 0, 0)
+    node8.force = forces.Force(5000,0 , 0, 0, 0)
 
     element0 = element.Element(node0, node1, node4, node3, ref=ref_sys)
     element1 = element.Element(node1, node2, node5, node4, ref=ref_sys)
