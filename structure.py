@@ -57,7 +57,11 @@ class Structure:
                     self._global_stiffness_matrix[I, J] += e.stiffness_matrix_global[i_local, j_local]
 
         if np.isclose(np.linalg.det(self._global_stiffness_matrix), 0.0):
-            print(np.where(~self._global_stiffness_matrix.any(axis=1))[0])
+            missing_constraint = np.where(~self._global_stiffness_matrix.any(axis=1))[0]
+            print(missing_constraint)
+            for n in self._unique_nodes:
+                if any(np.isin(n.getDOFNumbers(), missing_constraint)):
+                    print(f'Node ID: {n.id}, DOF to lock: {np.where(np.isin(n.getDOFNumbers(), missing_constraint))[0]}')
 
     def assemble_forces_matrix(self)->None:
 

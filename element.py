@@ -2,7 +2,7 @@
 
 import forces
 import node
-import material
+import Material
 import constraints
 
 import numpy as np
