@@ -23,10 +23,16 @@ class Element:
         self.nodes = [self.node1, self.node2, self.node3, self.node4]
 
         self._dofNumbers = [0] * 20
-        self._eps = 0
+        self._eps = None
         self._e1 = None
         self._e2 = None
         self._e3 = None
+        self._Bm = None
+        self._Bm_T = None
+        self._Bb = None
+        self._Bb_T = None
+        self._Bc = None
+        self._Bc_T = None
         self._compute_T()
         self.compute_stiffness_matrix()
 
@@ -123,13 +129,13 @@ class Element:
                 Bb[2, c + 3] = dN_dy[i]  # part kappa_xy aus theta_x
                 Bb[2, c + 4] = dN_dx[i]  # part kappa_xy aus theta_y
 
-            Bc = np.vstack([Bm, Bb])  # (6,20)
-            Kloc += (Bc.T @ ABD_Matrix @ Bc) * detJ * w
+            self._Bc = np.vstack([Bm, Bb])  # (6,20)
+            self._Bc_T = self._Bc.T
+            Kloc += (self._Bc_T @ ABD_Matrix @ self._Bc) * detJ * w
 
         # Projektion des reference koordinaten systems
         e0_proj = self.reference_system - np.dot(self.reference_system, self._e3) * self._e3
         e0_proj /= np.linalg.norm(e0_proj)
-
 
         x_mat_local = e0_proj
         y_mat_local = np.cross(self._e3, x_mat_local)
@@ -146,6 +152,70 @@ class Element:
 
         self.stiffness_matrix_local = Kloc_rotated
         self.stiffness_matrix_global = self._T.T @ self.stiffness_matrix_local @ self._T
+
+    def compute_strain(self):
+
+        # compute b matricies
+        gp = 1.0 / np.sqrt(3.0)
+        gauss = [(-gp, -gp), (gp, -gp), (gp, gp), (-gp, gp)]
+        weights = [1.0, 1.0, 1.0, 1.0]
+
+        p_global = [n.node_position for n in self.nodes]
+        nodes_local = []
+        for p in p_global:
+            v = p - p_global[0]  # Ursprung in node1
+            nodes_local.append((np.dot(v, self._e1), np.dot(v, self._e2)))
+        nodes_local = np.array(nodes_local)
+
+        for (xi, eta), w in zip(gauss, weights):
+            N, dN_dxi, dN_deta = self._shape_function(xi, eta)
+
+            J = np.zeros((2, 2))
+            for i in range(4):
+                xi_loc, yi_loc = nodes_local[i]
+                J[0, 0] += dN_dxi[i] * xi_loc
+                J[0, 1] += dN_dxi[i] * yi_loc
+                J[1, 0] += dN_deta[i] * xi_loc
+                J[1, 1] += dN_deta[i] * yi_loc
+
+            detJ = np.linalg.det(J)
+            if detJ <= 0:
+                raise ValueError("Nicht-positive Jacobi-Determinante (inverted element?). detJ=%g" % detJ)
+            invJ = np.linalg.inv(J)
+
+            dN_dx = np.zeros(4)
+            dN_dy = np.zeros(4)
+            for i in range(4):
+                grad_nat = np.array([dN_dxi[i], dN_deta[i]])
+                grad_xy = invJ @ grad_nat
+                dN_dx[i] = grad_xy[0]
+                dN_dy[i] = grad_xy[1]
+
+            # --- Bm (3x20) und Bb (3x20) aufbauen ---
+            Bm = np.zeros((3, 20))  # [eps_xx, eps_yy, gamma_xy]
+            Bb = np.zeros((3, 20))  # [kappa_xx, kappa_yy, kappa_xy]
+
+            for i in range(4):
+                c = i * 5
+                Bm[0, c + 0] = dN_dx[i]  # eps_xx <- du/dx
+                Bm[1, c + 1] = dN_dy[i]  # eps_yy <- dv/dy
+                Bm[2, c + 0] = dN_dy[i]  # gamma_xy <- du/dy
+                Bm[2, c + 1] = dN_dx[i]  # gamma_xy <- dv/dx
+                Bb[0, c + 3] = dN_dx[i]  # kappa_xx aus theta_x
+                Bb[1, c + 4] = dN_dy[i]  # kappa_yy aus theta_y
+                Bb[2, c + 3] = dN_dy[i]  # part kappa_xy aus theta_x
+                Bb[2, c + 4] = dN_dx[i]
+
+        u_elem_global = np.stack((self.node1.get_displacement(), self.node2.get_displacement(),
+                                  self.node3.get_displacement(), self.node4.get_displacement()))
+        u_local = self._T @ u_elem_global
+
+        u_mat = self.Tmat.T @ u_elem_global
+        eps_mat = Bc @ u_mat
+
+
+    def calc_Bs(self):
+
 
     def enumerate_dofs(self) -> None:
         self._dofNumbers = np.hstack((

@@ -3,6 +3,7 @@ import sys
 import matplotlib
 import numpy as np
 from PyQt5 import QtWidgets
+from charset_normalizer.md import annotations
 from pyvistaqt import QtInteractor
 import pyvista as pv
 import structure
@@ -28,6 +29,8 @@ class StructureViewerWidget(QtWidgets.QWidget):
 
         self._build_ui()
         self._draw_elements()
+        self.force_vector_magnitude = 0.001
+        self.force_mag_field.valueChanged.connect(self._update_force_mag)
 
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
@@ -58,90 +61,68 @@ class StructureViewerWidget(QtWidgets.QWidget):
         self.btn_solve_matrix.clicked.connect(self._solve_matrix)
         button_layout.addWidget(self.btn_solve_matrix)
 
-        self.btn_show_results = QtWidgets.QPushButton("Show Results")
-        self.btn_show_results.clicked.connect(self.show_results)
-        button_layout.addWidget(self.btn_show_results)
+        self.btn_show_displaced = QtWidgets.QPushButton("show_displaced")
+        self.btn_show_displaced.clicked.connect(self.show_displaced)
+        button_layout.addWidget(self.btn_show_displaced)
+
+        self.force_mag_field = QtWidgets.QDoubleSpinBox()
+        self.force_mag_field.setRange(0.01, 10.0)  # reasonable range
+        self.force_mag_field.setSingleStep(0.1)
+        self.force_mag_field.setValue(0.1)  # default value
+        self.force_mag_field.setDecimals(2)
+        button_layout.addWidget(QtWidgets.QLabel("Force Vector Magnitude"))
+        button_layout.addWidget(self.force_mag_field)
 
         layout.addLayout(button_layout)
         layout.addWidget(self.plotter.interactor)
+
         # conects the viewer
 
     def _solve_matrix(self):
         self.structure.solve()
 
-    #def show_results(self):
-#
-    #    sigma_values = [e.get_sigma() for e in self.structure.elements]
-    #    sigma_min = min(sigma_values)
-    #    sigma_max = max(sigma_values)
-#
-    #    for e in self.structure.elements:
-    #        line = pv.Line(e.node1.node_position, e.node2.node_position)
-    #        sigma = e.get_sigma()
-#
-    #        if sigma_max != sigma_min:
-    #            #interpolate color and catch zero division
-    #            t = (sigma - sigma_min) / (sigma_max - sigma_min)
-    #        else:
-    #            t =  0.5
-#
-    #        # Add colored mesh
-    #        self.plotter.add_mesh(
-    #            line,
-    #            color=matplotlib.cm.get_cmap('viridis')(t)[0:3],
-    #            line_width=5,
-    #            name="elements_results"
-    #        )
-#
-    #    self.plotter.add_scalar_bar(title="Sigma", n_labels=5)
-    #    self.plotter.render()
-    def show_results(self):
+    def show_displaced(self):
+        for element in self.structure.elements:
+            # collect node coordinates
+            points = np.array([n.displaced for n in element.nodes])
 
-        # clear prior result
-        if hasattr(self, 'result_actor'):
-            self.plotter.remove_actor(self.result_actor)
+            if len(points) == 3:  # triangular shell
+                faces = np.hstack([[3, 0, 1, 2]])
+            elif len(points) == 4:  # quad shell
+                faces = np.hstack([[4, 0, 1, 2, 3]])
+            else:
+                continue  # skip unsupported
 
-
-        lines = []
-        scalars = []
-        for elem in self.structure.elements:
-            lines.append(np.vstack([elem.node1.node_position, elem.node2.node_position]))
-            scalars.append(elem.get_sigma())
-
-        all_points = np.vstack(lines)
-        n_lines = len(lines)
-
-        # Build connectivity for PolyData
-        # Each line has 2 points → each line cell is [2, idx0, idx1]
-        cells = []
-        for i in range(n_lines):
-            cells.append([2, 2 * i, 2 * i + 1])
-        cells = np.hstack(cells)
-
-        pd = pv.PolyData()
-        pd.points = all_points
-        pd.lines = cells
-        pd["sigma"] = np.repeat(scalars, 2)  # repeat scalar per point for coloring
-
-
-        tube = pd.tube(radius=0.02)  # adjust radius as needed
-
-        # Add to plotter
-        self.result_actor = self.plotter.add_mesh(tube, scalars="sigma", cmap="viridis")
-        self.plotter.reset_camera()
-        self.plotter.render()
-
+            mesh = pv.PolyData(points, faces)
+            self.plotter.add_mesh(mesh, color="lightgray", style="wireframe")  # or surface
+        self.plotter.show_axes()
 
     def _assemble_matrix(self):
         self.structure.assemble_global_stiffness_matrix()
         self.structure.assemble_forces_matrix()
 
     def _draw_elements(self):
-        # draws all elements of the structure separately
         for element in self.structure.elements:
-            line = pv.Line(element.node1.node_position, element.node2.node_position)
-            self.plotter.add_mesh(line, color="black")
+            # collect node coordinates
+            points = np.array([n.node_position for n in element.nodes])
+
+            if len(points) == 3:  # triangular shell
+                faces = np.hstack([[3, 0, 1, 2]])
+            elif len(points) == 4:  # quad shell
+                faces = np.hstack([[4, 0, 1, 2, 3]])
+            else:
+                continue  # skip unsupported
+
+            mesh = pv.PolyData(points, faces)
+            self.plotter.add_mesh(mesh, color="lightgray", style="wireframe")  # or surface
         self.plotter.show_axes()
+
+    def _update_force_mag(self, val):
+        self.force_vector_magnitude = val
+        # if forces are already drawn, refresh them
+        if self.label_visibility["forces"]:
+            self.toggle_labels("forces")  # remove
+            self.toggle_labels("forces")  # re-draw with new scalin
 
     def toggle_labels(self, label_type):
         is_visible = self.label_visibility[label_type]
@@ -158,8 +139,9 @@ class StructureViewerWidget(QtWidgets.QWidget):
                 )
 
             elif label_type == 'elements':
-                points = [(elem.node1.node_position + elem.node2.node_position) / 2 for elem in self.structure.elements]
+                points = [np.mean([n.node_position for n in elem.nodes], axis=0) for elem in self.structure.elements]
                 labels = [f"E{elem.id}" for elem in self.structure.elements]
+
                 self.plotter.add_point_labels(
                     points, labels, font_size=12,
                     point_color='white', text_color='black',
@@ -175,13 +157,55 @@ class StructureViewerWidget(QtWidgets.QWidget):
                     point_color='white', text_color='black',
                     name=f"{label_type}_labels"
                 )
-
             elif label_type == 'forces':
+                # remove old arrows and labels if present
+                self.plotter.remove_actor("force_arrows")
+                self.plotter.remove_actor("force_labels")
 
-                points = [node.node_position for node in self.structure.get_unique_nodes() if node.check_forces()]
-                vectors = [node.force.get_components() for node in self.structure.get_unique_nodes() if node.check_forces()]
+                force_points = []
+                force_vectors = []
+                force_magnitudes = []
 
-                self.plotter.add_arrows(np.array(points), np.array(vectors), mag=0.1, name=f"{label_type}_labels")
+                for n in self.structure.get_unique_nodes():
+                    f = n.force.get_components()  # [Fx,Fy,Fz,Mx,My]
+                    Fx, Fy, Fz, Mx, My = f
+                    p = n.node_position
+
+                    # --- Translational forces ---
+                    vec = np.array([Fx, Fy, Fz])
+                    if np.linalg.norm(vec) > 0:
+                        force_points.append(p)
+                        force_vectors.append(vec)
+                        force_magnitudes.append(f"{np.linalg.norm(vec):.2f}")
+
+                    # --- Moment about x (double-headed arrow) ---
+                    if Mx != 0:
+                        vec = np.array([self.force_vector_magnitude * np.sign(Mx) * 0.01, 0, 0])
+                        arrow1 = pv.Arrow(start=p - vec, direction=vec)
+                        arrow2 = pv.Arrow(start=p + vec, direction=vec)
+                        self.plotter.add_mesh(arrow1, color="blue", name=f"moment_x_{n.id}_1")
+                        self.plotter.add_mesh(arrow2, color="blue", name=f"moment_x_{n.id}_2")
+                        self.plotter.add_point_labels([p], [f"Mx={Mx:.2f}"], text_color="blue",
+                                                      name=f"moment_x_label_{n.id}", font_size=10)
+
+                    # --- Moment about y (double-headed arrow) ---
+                    if My != 0:
+                        vec = np.array([0, self.force_vector_magnitude * np.sign(My) * 0.01, 0])
+                        arrow1 = pv.Arrow(start=p - vec, direction=vec,)
+                        arrow2 = pv.Arrow(start=p + vec, direction=vec)
+                        self.plotter.add_mesh(arrow1, color="green", name=f"moment_y_{n.id}_1")
+                        self.plotter.add_mesh(arrow2, color="green", name=f"moment_y_{n.id}_2")
+                        self.plotter.add_point_labels([p], [f"My={My:.2f}"], text_color="green",
+                                                      name=f"moment_y_label_{n.id}", font_size=10)
+
+                # add translational arrows + tip labels
+                if force_points:
+                    self.plotter.add_arrows(np.array(force_points), np.array(force_vectors),
+                                            mag=self.force_vector_magnitude * 0.01,
+                                            name="force_arrows")
+                    self.plotter.add_point_labels(np.array(force_points), force_magnitudes,
+                                                  font_size=10, text_color="red",
+                                                  name="force_labels")
 
         self.label_visibility[label_type] = not is_visible
         self.plotter.render()

@@ -1,4 +1,5 @@
 # Class for structure
+from numpy.ma.extras import unique
 
 import element
 import forces
@@ -6,16 +7,16 @@ import node
 import constraints
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Structure:
-    def __init__(self, typ='r'):
+    def __init__(self):
         self._global_stiffness_matrix = None
         self._global_force_vector = None
         self.elements = []
         self._nodes = []
         self._unique_nodes = []
         self._displacements = None
-        self._type = typ
 
     def add_element(self, e:element.Element)->None:
             self.elements.append(e)
@@ -54,8 +55,9 @@ class Structure:
                     if J == -1:
                         continue
                     self._global_stiffness_matrix[I, J] += e.stiffness_matrix_global[i_local, j_local]
-        print(self._global_stiffness_matrix)
 
+        if np.isclose(np.linalg.det(self._global_stiffness_matrix), 0.0):
+            print(np.where(~self._global_stiffness_matrix.any(axis=1))[0])
 
     def assemble_forces_matrix(self)->None:
 
@@ -79,6 +81,9 @@ class Structure:
         for e in self.elements:
             e.compute_eps()
 
+        #for n in self._unique_nodes:
+         #   n.print_displacements()
+
     def _set_nodal_displacements(self)->None:
         for n in self._unique_nodes:
             x = n.getDOFNumbers()
@@ -88,28 +93,36 @@ class Structure:
                 else:
                     u = self._displacements[dof_num]
                     n.set_displacement(i_local, u)
+            n.print_displacement()
 
 def main():
     # setup structure with nodes
     node0 = node.Node(0, 0, 0)
     node1 = node.Node(0, 1, 0)
     node2 = node.Node(0, 2, 0)
-    node3 = node.Node(1, 0, 0.1)
-    node4 = node.Node(1, 1, 0.1)
-    node5 = node.Node(1, 2, 0.1)
-    node6 = node.Node(2, 0, 0.3)
-    node7 = node.Node(2, 1, 0.3)
-    node8 = node.Node(2, 2, 0.3)
+    node3 = node.Node(1, 0, 0)
+    node4 = node.Node(1, 1, 0)
+    node5 = node.Node(1, 2, 0)
+    node6 = node.Node(2, 0, 0)
+    node7 = node.Node(2, 1, 0)
+    node8 = node.Node(2, 2, 0)
 
     ref_sys = np.array([1, 0, 0])
 
-    node0.constraints = constraints.Constraint(False, False, False, )
-    node1.constraints = constraints.Constraint(False, True, False)
-    node2.constraints = constraints.Constraint(True, False, False)
+    node0.constraints = constraints.Constraint(False, False, False, False, False)
+    node1.constraints = constraints.Constraint(False, False, False, False, False)
+    node2.constraints = constraints.Constraint(False, False, False, False, False)
+    node3.constraints = constraints.Constraint(True, True, False, True, True)
+    node4.constraints = constraints.Constraint(True, True, False, True, True)
+    node5.constraints = constraints.Constraint(True, True, False, True, True)
+    node8.constraints = constraints.Constraint(True, True, False, True, True)
+    node6.constraints = constraints.Constraint(True, True, False, True, True)
+    node7.constraints = constraints.Constraint(True, True, False, True, True)
+    node8.constraints = constraints.Constraint(True, True, False, True, True)
 
-    node6.forces = forces.Force(1,0, 0.4)
-    node7.forces = forces.Force(1,0, 0.4)
-    node8.forces = forces.Force(1,0, 0.4)
+    node6.force = forces.Force(0,100, 0, 0, 0)
+    node7.force = forces.Force(0,100, 0, 0, 0)
+    node8.force = forces.Force(0,100, 0, 0, 0)
 
     element0 = element.Element(node0, node1, node4, node3, ref=ref_sys)
     element1 = element.Element(node1, node2, node5, node4, ref=ref_sys)
@@ -123,10 +136,6 @@ def main():
     shell_struct_1.add_element(element2)
     shell_struct_1.add_element(element3)
 
-    print('wait')
-
-    shell_struct_1.assemble_global_stiffness_matrix()
-    shell_struct_1.assemble_forces_matrix()
     shell_struct_1.solve()
 
 

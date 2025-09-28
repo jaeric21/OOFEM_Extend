@@ -14,6 +14,7 @@ class Node:
         self.force = forces.Force(0, 0, 0, 0, 0)  # Force-Klasse anpassen
         self.constraints = constraints.Constraint(True, True, True, True, True)  # jetzt 5 DOFs
         self._displacement = np.zeros(5, dtype=float)
+        self.displaced= np.zeros(3, dtype=float)
 
     def print(self) -> None:
         print(self.node_position)
@@ -41,13 +42,16 @@ class Node:
         return 'xyz'
 
     def print_displacement(self)->None:
-        print(f'Node ID: {str(self.id)}, {self._displacement}')
+        print(f'Node ID: {str(self.id)}, {self._displacement[0:3]}')
 
     def set_displacement(self, xyz, u)->None:
         self._displacement[xyz] = u
 
     def get_displacement(self):
         return self._displacement
+
+    def calculate_new_position(self):
+        self.displaced = self.node_position + self._displacement[0:3]
 
 if __name__ == "__main__":
     node_1 = Node(0, 0, 0)
