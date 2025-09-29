@@ -63,7 +63,7 @@ def main():
             if n.node_position[0] == 0 and n.node_position[1] == 0:
                 n.constraints = constraints.Constraint(False, False, False, False, False)
             elif n.node_position[0] == 0:
-                n.constraints = constraints.Constraint(False, True, False, False, False)
+                n.constraints = constraints.Constraint(False, False, False, False, False)
             else:
                 n.constraints = constraints.Constraint(True, True, False, True, True)
 

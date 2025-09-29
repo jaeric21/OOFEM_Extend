@@ -51,7 +51,7 @@ class Node:
         return self._displacement
 
     def calculate_new_position(self):
-        self.displaced = self.node_position + self._displacement[0:3]
+        self.displaced = self.node_position + self._displacement[0:3] * 100
 
 if __name__ == "__main__":
     node_1 = Node(0, 0, 0)

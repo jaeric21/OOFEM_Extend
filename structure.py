@@ -92,7 +92,7 @@ class Structure:
                 else:
                     u = self._displacements[dof_num]
                     n.set_displacement(i_local, u)
-            n.print_displacement()
+            n.calculate_new_position()
 
 def main():
     # main for testing
