@@ -56,6 +56,11 @@ class Structure:
                         continue
                     self._global_stiffness_matrix[I, J] += e.stiffness_matrix_global[i_local, j_local]
 
+        fig, ax = plt.subplots()
+        ax.imshow((self._global_stiffness_matrix != 0).astype(int), cmap='gray')
+        ax.set_title(f"Global stiffness matrix Element")
+        plt.show()
+
         if np.isclose(np.linalg.det(self._global_stiffness_matrix), 0.0):
             missing_constraint = np.where(~self._global_stiffness_matrix.any(axis=1))[0]
             print(missing_constraint)

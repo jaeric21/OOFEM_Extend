@@ -94,7 +94,7 @@ class Element:
         weights = [1.0, 1.0, 1.0, 1.0]
 
         for (xi, eta), w in zip(gauss, weights):
-            Bc, detJ = self._calc_Bc(xi, eta)
+            Bc, detJ = self._calc_Bm_Bb_Bb(xi, eta)
             Kloc += (Bc.T @ ABD_Matrix @ Bc) * detJ * w
 
         self._compute_Tmat()
@@ -126,49 +126,99 @@ class Element:
             Tmat[i * 5:i * 5 + 5, i * 5:i * 5 + 5] = R
         self._Tmat = Tmat
 
-    def _calc_Bc(self, xi, eta):
-        # Build the Bc matrix (6x20) and return detJ for a Gauss point.
+    def _calc_Bm_Bb_Bb(self, xi, eta):
         N, dN_dxi, dN_deta = self._shape_function(xi, eta)
+        naturalDerivatives = np.column_stack([dN_dxi, dN_deta])
 
-        # Jacobian
-        J = np.zeros((2, 2))
-        for i in range(4):
-            xi_loc, yi_loc = self.nodes_local[i]
-            J[0, 0] += dN_dxi[i] * xi_loc
-            J[0, 1] += dN_dxi[i] * yi_loc
-            J[1, 0] += dN_deta[i] * xi_loc
-            J[1, 1] += dN_deta[i] * yi_loc
+        J, detJ, XYderivates = self._calc_Jacobian(naturalDerivatives)
 
-        detJ = np.linalg.det(J)
-        if detJ <= 0:
-            raise ValueError(f"Invalid Jacobian determinant: {detJ}")
-        invJ = np.linalg.inv(J)
-
-        dN_dx = np.zeros(4)
-        dN_dy = np.zeros(4)
-        for i in range(4):
-            grad_nat = np.array([dN_dxi[i], dN_deta[i]])
-            grad_xy = invJ @ grad_nat
-            dN_dx[i] = grad_xy[0]
-            dN_dy[i] = grad_xy[1]
-
-        # Build Bm and Bb
         Bm = np.zeros((3, 20))
         Bb = np.zeros((3, 20))
         for i in range(4):
             c = i * 5
-            Bm[0, c + 0] = dN_dx[i]
-            Bm[1, c + 1] = dN_dy[i]
-            Bm[2, c + 0] = dN_dy[i]
-            Bm[2, c + 1] = dN_dx[i]
 
-            Bb[0, c + 3] = dN_dx[i]
-            Bb[1, c + 4] = dN_dy[i]
-            Bb[2, c + 3] = dN_dy[i]
-            Bb[2, c + 4] = dN_dx[i]
+            dNx, dNy = XYderivates[i, 0], XYderivates[i, 1]
 
-        Bc = np.vstack([Bm, Bb])  # (6,20)
+            Bm[0, c + 0] = dNx
+            Bm[1, c + 1] = dNy
+            Bm[2, c + 0] = dNy
+            Bm[2, c + 1] = dNx
+
+            Bb[0, c + 3] = dNx
+            Bb[1, c + 4] = dNy
+            Bb[2, c + 3] = dNy
+            Bb[2, c + 4] = dNx
+
+            Bc = np.vstack([Bm, Bb])
+
         return Bc, detJ
+
+    def _calc_Jacobian(self, natural_derivatives):
+
+        J = np.array(self.p_global).T @ natural_derivatives  # (dim,2)
+
+        if J.shape[0] == 2:
+            invJ = np.linalg.inv(J)
+            XYderivatives = natural_derivatives @ invJ
+            detJ = np.linalg.det(J)
+
+        elif J.shape[0] == 3:
+            # 3D surface element (shells, plates in space)
+            G = J.T @ J
+            invG = np.linalg.inv(G)
+            g_contra = J @ invG
+            XYderivatives = natural_derivatives @ g_contra.T
+            detJ = np.sqrt(np.linalg.det(G))
+
+        else:
+            raise ValueError("Unsupported node coordinate dimension")
+
+        return J, detJ, XYderivatives
+
+
+    #def _calc_Bc(self, xi, eta):
+    #    # Build the Bc matrix (6x20) and return detJ for a Gauss point.
+    #    N, dN_dxi, dN_deta = self._shape_function(xi, eta)
+
+    #    # Jacobian
+    #    J = np.zeros((2, 2))
+    #    for i in range(4):
+    #        xi_loc, yi_loc = self.nodes_local[i]
+    #        J[0, 0] += dN_dxi[i] * xi_loc
+    #        J[0, 1] += dN_dxi[i] * yi_loc
+    #        J[1, 0] += dN_deta[i] * xi_loc
+    #        J[1, 1] += dN_deta[i] * yi_loc
+
+    #    detJ = np.linalg.det(J)
+    #    if detJ <= 0:
+    #        raise ValueError(f"Invalid Jacobian determinant: {detJ}")
+    #    invJ = np.linalg.inv(J)
+
+    #    dN_dx = np.zeros(4)
+    #    dN_dy = np.zeros(4)
+    #    for i in range(4):
+    #        grad_nat = np.array([dN_dxi[i], dN_deta[i]])
+    #        grad_xy = invJ @ grad_nat
+    #        dN_dx[i] = grad_xy[0]
+    #        dN_dy[i] = grad_xy[1]
+
+    #    # Build Bm and Bb
+    #    Bm = np.zeros((3, 20))
+    #    Bb = np.zeros((3, 20))
+    #    for i in range(4):
+    #        c = i * 5
+    #        Bm[0, c + 0] = dN_dx[i]
+    #        Bm[1, c + 1] = dN_dy[i]
+    #        Bm[2, c + 0] = dN_dy[i]
+    #        Bm[2, c + 1] = dN_dx[i]
+
+    #        Bb[0, c + 3] = dN_dx[i]
+    #        Bb[1, c + 4] = dN_dy[i]
+    #        Bb[2, c + 3] = dN_dy[i]
+    #        Bb[2, c + 4] = dN_dx[i]
+
+    #    Bc = np.vstack([Bm, Bb])  # (6,20)
+    #    return Bc, detJ
 
     def compute_strain(self):
 
@@ -190,7 +240,7 @@ class Element:
         strains_gp = []
 
         for (xi, eta), w in zip(gauss, weights):
-            Bc, detJ = self._calc_Bc(xi, eta)
+            Bc, detJ = self._calc_Bm_Bb_Bb(xi, eta)
             eps = Bc @ u_mat
             strains_gp.append([eps[0], eps[1], eps[2], eps[3], eps[4]])
 

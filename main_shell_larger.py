@@ -45,7 +45,7 @@ def main():
     for j in range(N + 1):  # N+1 nodes in each direction
         row = []
         for i in range(N + 1):
-            row.append(node.Node(i * dx, j * dy, 0))
+            row.append(node.Node(i * dx, j * dy,0))
         nodes.append(row)
 
     elements = []
