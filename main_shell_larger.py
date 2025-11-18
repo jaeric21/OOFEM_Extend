@@ -68,7 +68,7 @@ def main():
                 n.constraints = constraints.Constraint(True, True, False, True, True)
 
             if n.node_position[0] == Lx:
-                n.force = forces.Force(5000, 1000, 0, 0, 0)
+                n.force = forces.Force(5000, 1000, 1000, 0, 0)
 
     shell_struct_1 = structure.Structure()
 
